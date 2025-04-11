@@ -1,261 +1,146 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import TeacherSidebar from "@/components/teacher_sidebar";
-import { Bar } from "react-chartjs-2";
-import "chart.js/auto";
+import TopBar from "@/components/topbar";
+import axios from "axios";
 
-const Header: React.FC = () => {
-  return (
-    <header className="p-4 bg-gray-800 shadow-md flex justify-between items-center rounded-lg border border-gray-700">
-      <h1 className="text-xl font-bold text-white">Teacher Dashboard</h1>
-      <div className="flex items-center">
-        <span className="bg-green-500 h-2.5 w-2.5 rounded-full mr-2"></span>
-        <span className="text-gray-300">Online</span>
-      </div>
-    </header>
-  );
-};
-
-interface StatCardProps {
-  title: string;
-  content: React.ReactNode;
+// Interfaces
+interface TeacherProfile {
+  name: string;
+  department: string;
+  designation: string;
+  email: string;
+  phone: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, content }) => {
-  return (
-    <div className="bg-gray-800 text-white p-4 rounded-lg shadow-md text-center border border-gray-700">
-      <h3 className="text-blue-400 text-lg font-semibold">{title}</h3>
-      <div className="text-md mt-2">{content}</div>
-    </div>
-  );
-};
+interface Course {
+  id: string;
+  code: string;
+  name: string;
+  sections: string[];
+  students: number;
+}
 
-const ProfileCard: React.FC = () => {
-  return (
-    <div className="bg-gray-800 text-white p-6 rounded-lg shadow-md border border-gray-700 flex items-center">
-      <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-2xl font-bold">
-        DR
-      </div>
-      <div className="ml-6">
-        <h2 className="text-xl font-bold">Dr. Ramesh Kumar</h2>
-        <p className="text-gray-400">Associate Professor, Computer Science</p>
-        <div className="flex mt-2">
-          <div className="mr-6">
-            <p className="text-sm text-gray-400">Email</p>
-            <p>ramesh.kumar@university.edu</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-400">Faculty ID</p>
-            <p>CSE-2145</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Calendar: React.FC = () => {
-  // Simple calendar display - in a real app, you'd use a calendar library
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const currentDate = new Date();
-  const currentDay = currentDate.getDate();
-  
-  // Generate calendar dates (simplified)
-  const calendarDates = Array.from({ length: 30 }, (_, i) => i + 1);
-  
-  return (
-    <div className="bg-gray-800 text-white p-4 rounded-lg shadow-md border border-gray-700">
-      <h3 className="text-blue-400 text-lg font-semibold mb-3">March 2025</h3>
-      <div className="grid grid-cols-7 gap-1">
-        {days.map(day => (
-          <div key={day} className="text-center text-gray-400 text-sm py-1">{day}</div>
-        ))}
-        {calendarDates.map(date => (
-          <div 
-            key={date} 
-            className={`text-center py-2 rounded-full ${currentDay === date ? 'bg-blue-600' : 'hover:bg-gray-700'} cursor-pointer`}
-          >
-            {date}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 border-t border-gray-700 pt-3">
-        <h4 className="text-white font-medium">Todays Schedule</h4>
-        <ul className="mt-2 space-y-2">
-          <li className="flex justify-between">
-            <span>Data Structures</span>
-            <span className="text-green-400">10:00-11:30</span>
-          </li>
-          <li className="flex justify-between">
-            <span>Faculty Meeting</span>
-            <span className="text-green-400">14:00-15:00</span>
-          </li>
-          <li className="flex justify-between">
-            <span>Office Hours</span>
-            <span className="text-green-400">16:00-17:30</span>
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-};
-
-const TeachingCourses: React.FC = () => {
-  return (
-    <div className="bg-gray-800 text-white p-4 rounded-lg shadow-md border border-gray-700">
-      <h3 className="text-blue-400 text-lg font-semibold mb-3">Current Courses</h3>
-      <div className="space-y-3">
-        <div className="flex justify-between items-center p-2 bg-gray-750 rounded hover:bg-gray-600 cursor-pointer">
-          <div>
-            <h4 className="font-medium">CS301: Data Structures</h4>
-            <p className="text-sm text-gray-400">CSE-A, CSE-B</p>
-          </div>
-          <span className="bg-green-600 text-xs px-2 py-1 rounded">120 Students</span>
-        </div>
-        <div className="flex justify-between items-center p-2 bg-gray-700 rounded hover:bg-gray-600 cursor-pointer">
-          <div>
-            <h4 className="font-medium">CS405: Machine Learning</h4>
-            <p className="text-sm text-gray-400">CSE-C, AID-A</p>
-          </div>
-          <span className="bg-green-600 text-xs px-2 py-1 rounded">95 Students</span>
-        </div>
-        <div className="flex justify-between items-center p-2 bg-gray-700 rounded hover:bg-gray-600 cursor-pointer">
-          <div>
-            <h4 className="font-medium">CS210: Algorithm Analysis</h4>
-            <p className="text-sm text-gray-400">CYS-A</p>
-          </div>
-          <span className="bg-green-600 text-xs px-2 py-1 rounded">60 Students</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Dashboard: React.FC = () => {
-  const performanceData = {
-    labels: ["CSE-A", "CSE-B", "CSE-C", "CSE-D", "AID-A", "AID-B"],
-    datasets: [
-      {
-        label: "Average Marks (%)",
-        data: [85, 78, 92, 88, 74, 69],
-        backgroundColor: ["#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6", "#1abc9c"],
-      },
-    ],
-  };
-
-  return (
-    <div className="ml-16 p-4 w-full min-h-screen bg-gray-900">
-      <Header />
-      
-      {/* Profile Overview */}
-      <div className="mt-4">
-        <ProfileCard />
-      </div>
-      
-      {/* First row - Upcoming Classes and Current Courses side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-        <StatCard 
-          title="Upcoming Classes" 
-          content={
-            <ul className="text-left space-y-2">
-              <li className="border-l-4 border-blue-500 pl-2">
-                <div className="font-medium">Data Structures</div>
-                <div className="text-sm text-gray-400">Today, 10:00 AM • Room 405</div>
-              </li>
-              <li className="border-l-4 border-green-500 pl-2">
-                <div className="font-medium">Algorithm Analysis</div>
-                <div className="text-sm text-gray-400">Today, 2:00 PM • Room 302</div>
-              </li>
-              <li className="border-l-4 border-purple-500 pl-2">
-                <div className="font-medium">Machine Learning</div>
-                <div className="text-sm text-gray-400">Tomorrow, 11:30 AM • Lab 2</div>
-              </li>
-            </ul>
-          } 
-        />
-        
-        <TeachingCourses />
-      </div>
-      
-      {/* Second row - Events/Workshops and Class Performance side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-        <StatCard 
-          title="Upcoming Events & Workshops" 
-          content={
-            <ul className="text-left space-y-2">
-              <li className="border-l-4 border-yellow-500 pl-2">
-                <div className="font-medium">Faculty Development Program</div>
-                <div className="text-sm text-gray-400">March 15, 2025 • Main Auditorium</div>
-              </li>
-              <li className="border-l-4 border-red-500 pl-2">
-                <div className="font-medium">AI Workshop for Students</div>
-                <div className="text-sm text-gray-400">March 18, 2025 • Computer Lab</div>
-              </li>
-              <li className="border-l-4 border-indigo-500 pl-2">
-                <div className="font-medium">Research Symposium</div>
-                <div className="text-sm text-gray-400">March 22, 2025 • Conference Hall</div>
-              </li>
-            </ul>
-          } 
-        />
-        
-        {/* Performance Chart */}
-        <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
-          <h3 className="text-blue-400 text-lg font-semibold mb-2">Class Performance</h3>
-          <div className="h-64">
-            <Bar 
-              data={performanceData} 
-              options={{ 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                scales: { 
-                  y: { 
-                    beginAtZero: true, 
-                    max: 100,
-                    grid: {
-                      color: 'rgba(255, 255, 255, 0.1)'
-                    }
-                  },
-                  x: {
-                    grid: {
-                      color: 'rgba(255, 255, 255, 0.1)'
-                    }
-                  }
-                },
-                plugins: {
-                  legend: {
-                    labels: {
-                      color: 'white'
-                    }
-                  }
-                } 
-              }} 
-            />
-          </div>
-        </div>
-      </div>
-      
-      {/* Calendar Section */}
-      <div className="mt-4">
-        <Calendar />
-      </div>
-    </div>
-  );
-};
-
+// TeacherDashboard Component
 const TeacherDashboard: React.FC = () => {
   const router = useRouter();
-  const [role, setRole] = useState("");
+  const [profile, setProfile] = useState<TeacherProfile | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const getToken = () => {
+    return localStorage.getItem("token") || "";
+  };
 
   useEffect(() => {
-    const storedRole = localStorage.getItem("role");
-    if (storedRole !== "teacher") router.push("/");
+    const fetchProfile = async () => {
+      try {
+        const token = getToken();
+        const role = localStorage.getItem("role");
+        if (role !== "teacher") {
+          router.push("/login");
+          return;
+        }
+
+        const response = await axios.get("/api/teacher/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.data.email) {
+          setProfile(response.data);
+          localStorage.setItem("userName", response.data.name || "Teacher");
+          localStorage.setItem("userEmail", response.data.email || "teacher@university.edu");
+        }
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
   }, [router]);
 
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const token = getToken();
+        const response = await axios.get("/api/teacher/courses", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const uniqueCourses = response.data.filter(
+          (course: Course, index: number, self: Course[]) =>
+            index === self.findIndex((c) => c.id === course.id)
+        );
+
+        setCourses(uniqueCourses);
+      } catch (err) {
+        console.error("Failed to process courses:", err);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <span className="ml-3 text-white">Loading dashboard...</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex">
+    <div className="min-h-screen bg-gray-900 text-gray-200 flex">
       <TeacherSidebar />
-      <Dashboard />
+      <div className="flex-1 ml-16 p-6">
+        <TopBar />
+
+        {/* Welcome Banner */}
+        <div className="mt-6 mb-8 bg-gradient-to-r from-blue-800 to-indigo-900 rounded-lg shadow-lg p-6 mx-6">
+          <h1 className="text-2xl font-bold text-white mb-2">
+            Welcome, {profile?.name || 'Teacher'}
+          </h1>
+          <p className="text-indigo-200">
+            {profile?.designation || 'Faculty'} | {profile?.department || 'Department'}
+          </p>
+        </div>
+
+        {/* Main Content */}
+        <div className="px-6">
+          {/* Teaching Courses */}
+          <div className="bg-gray-800 rounded-lg shadow-md border border-gray-700 p-6">
+            <h2 className="text-xl font-semibold text-gray-100 mb-4">Your Teaching Courses</h2>
+            {courses.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {courses.map((course) => (
+                  <div
+                    key={course.id}
+                    className="bg-gray-750 p-4 rounded-lg border border-gray-700 hover:bg-gray-700 transition-colors"
+                  >
+                    <h3 className="text-lg font-medium text-blue-300 mb-1">
+                      {course.code}
+                    </h3>
+                    <p className="text-gray-200 mb-2">{course.name}</p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-400">
+                        Sections: {course.sections.join(", ")}
+                      </span>
+                      <span className="bg-green-600 text-xs px-2 py-1 rounded">
+                        {course.students} Students
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400">No courses assigned yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

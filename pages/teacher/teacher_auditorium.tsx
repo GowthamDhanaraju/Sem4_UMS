@@ -1,133 +1,180 @@
 import React, { useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/router";
+import TopBar from "@/components/topbar";
 import TeacherSidebar from "@/components/teacher_sidebar";
 
-interface Event {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  organizer: string;
-  status: "approved" | "pending" | "rejected" | "completed";
-  description: string;
-}
+const CreateAuditorium: React.FC = () => {
+  const router = useRouter();
 
-interface BookingSlot {
-  id: string;
-  date: string;
-  timeSlot: string;
-  isAvailable: boolean;
-}
+  const [formData, setFormData] = useState({
+    name: "",
+    location: "",
+    capacity: "",
+    amenities: "",
+    status: "available",
+    statusNote: "",
+    hasWhiteboard: false,
+  });
 
-const AuditoriumPage: React.FC = () => {
-  // Sample data - would come from API in production
-  const [activeTab, setActiveTab] = useState<"booking">("booking");
-  const [bookingForm, setBookingForm] = useState({
-    title: "",
-    date: "",
-    time: "",
-    description: "",
-  }); 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+  
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prevData) => ({
+        ...prevData,
+        [name]: checked,
+      }));
+    } else {
+      setFormData((prevData) => ({
+        ...prevData,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would send data to an API
-    alert("Booking request submitted: " + JSON.stringify(bookingForm));
-    setBookingForm({ title: "", date: "", time: "", description: "" });
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const response = await axios.post("/api/auditoriums", {
+        ...formData,
+        capacity: parseInt(formData.capacity, 10), // Ensure capacity is a number
+        amenities: formData.amenities.split(",").map((amenity) => amenity.trim()), // Convert amenities to an array
+      });
+
+      if (response.status === 201) {
+        setSuccessMessage("Auditorium created successfully!");
+        setFormData({
+          name: "",
+          location: "",
+          capacity: "",
+          amenities: "",
+          status: "available",
+          statusNote: "",
+          hasWhiteboard: false,
+        });
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || "An error occurred while creating the auditorium.");
+    }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setBookingForm(prev => ({ ...prev, [name]: value }));
-  };
- 
-
-  const currentDate = new Date();
- 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200">
+    <div className="min-h-screen bg-gray-900 text-gray-200 flex">
       <TeacherSidebar />
-      
-      <div className="ml-16 p-6">
-        <div className="bg-gray-800 rounded-lg shadow-md p-6 mb-6 border border-gray-700">
-          <h1 className="text-2xl font-bold text-gray-100 mb-4">Auditorium Management</h1>
-          
-          {/* Tabs */}
-          <div className="flex border-b border-gray-700 mb-6">
-            <button 
-              className={`px-4 py-2 font-medium ${activeTab === "booking" ? "text-blue-400 border-b-2 border-blue-400" : "text-gray-400 hover:text-gray-200"}`}
-              onClick={() => setActiveTab("booking")}
-            >
-              Booking Details
-            </button> 
-          </div>
-          
-          {/* Booking Details Tab */}
-          {activeTab === "booking" && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4 text-gray-200">Request Auditorium Booking</h2>
-              <form onSubmit={handleBookingSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Event Title</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={bookingForm.title}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-600 rounded-md bg-gray-700 text-white"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
-                    <input
-                      type="date"
-                      name="date"
-                      value={bookingForm.date}
-                      onChange={handleInputChange}
-                      className="w-full p-2 border border-gray-600 rounded-md bg-gray-700 text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Time Slot</label>
-                    <select
-                      name="time"
-                      value={bookingForm.time}
-                      onChange={handleInputChange}
-                      className="w-full p-2 border border-gray-600 rounded-md bg-gray-700 text-white"
-                      required
-                    >
-                      <option value="">Select time slot</option>
-                      <option value="09:00-12:00">09:00 - 12:00</option>
-                      <option value="13:00-16:00">13:00 - 16:00</option>
-                      <option value="16:30-19:30">16:30 - 19:30</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Event Description</label>
-                  <textarea
-                    name="description"
-                    value={bookingForm.description}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-600 rounded-md bg-gray-700 text-white"
-                    rows={3}
-                    required
-                  ></textarea>
-                </div>
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+      <div className="flex-1 p-6 ml-16">
+        <TopBar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h1 className="text-2xl font-bold mb-4">Create Auditorium</h1>
+
+            {error && <div className="bg-red-800 text-red-200 p-3 rounded mb-4">{error}</div>}
+            {successMessage && <div className="bg-green-800 text-green-200 p-3 rounded mb-4">{successMessage}</div>}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 rounded"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 rounded"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Capacity</label>
+                <input
+                  type="number"
+                  name="capacity"
+                  value={formData.capacity}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 rounded"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Amenities (comma-separated)</label>
+                <input
+                  type="text"
+                  name="amenities"
+                  value={formData.amenities}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 rounded"
+                  placeholder="e.g., Projector, Sound System, Air Conditioning"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 rounded"
                 >
-                  Submit Booking Request
-                </button>
-              </form>
-            </div>
-          )}
+                  <option value="available">Available</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="unavailable">Unavailable</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Status Note</label>
+                <textarea
+                  name="statusNote"
+                  value={formData.statusNote}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-gray-700 text-gray-200 rounded"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="hasWhiteboard"
+                  checked={formData.hasWhiteboard}
+                  onChange={handleChange}
+                  className="mr-2"
+                />
+                <label className="text-sm font-medium">Has Whiteboard</label>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium"
+              >
+                Book Auditorium
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default AuditoriumPage;
+export default CreateAuditorium;

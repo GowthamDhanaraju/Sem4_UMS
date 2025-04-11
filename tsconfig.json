@@ -17,6 +17,11 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "ts-node": {
+    "experimentalSpecifierResolution": "node",
+    "transpileOnly": true,
+    "esm": true,
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "../../../../coding/extras/teacher_tasks.tsx", "../../admin_clubs.tsx", "prisma/seed.ts"],
   "exclude": ["node_modules"]
 }

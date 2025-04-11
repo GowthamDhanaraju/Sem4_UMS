@@ -1,142 +1,210 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import StudentSidebar from "@/components/student_sidebar";
-import TopBar from "@/components/student_topbar";
+import TopBar from "@/components/topbar";
 import { Typography } from "@mui/material";
-import { FaChalkboardTeacher } from "react-icons/fa";
 import { FiAward } from "react-icons/fi";
 
-interface CourseGrade {
-  code: string;
-  name: string;
-  credits: number;
-  grade: string;
-  gradePoint: number;
-}
-
-interface SemesterGrades {
-  semester: string;
-  year: string;
-  courses: CourseGrade[];
-  sgpa: number;
-}
-
-const StudentGrades: React.FC = () => {
+const GradesPage: React.FC = () => {
   const router = useRouter();
-  const [selectedSemester, setSelectedSemester] = useState<string>("current");
+  const [selectedSemester, setSelectedSemester] = useState("current");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [studentInfo, setStudentInfo] = useState({
+    name: "",
+    id: "",
+    program: ""
+  });
   const [gradesData, setGradesData] = useState<{
-    studentName: string;
-    studentId: string;
-    program: string;
     cgpa: number;
-    semesters: SemesterGrades[];
+    totalCredits: number;
+    semesters: Array<{
+      semester: number;
+      year: number;
+      gpa: number;
+      courses: Array<{
+        code: string;
+        name: string;
+        credits: number;
+        grade: string;
+        points: number;
+        department?: string;
+      }>;
+      totalCredits: number;
+      totalPoints: number;
+    }>;
   }>({
-    studentName: "Rajesh K",
-    studentId: "CSE-2145",
-    program: "B.Tech Computer Science and Engineering",
-    cgpa: 8.7,
-    semesters: [
-      {
-        semester: "1",
-        year: "2022",
-        courses: [
-          { code: "MA101", name: "Engineering Mathematics I", credits: 4, grade: "A", gradePoint: 9 },
-          { code: "PH101", name: "Engineering Physics", credits: 3, grade: "A+", gradePoint: 10 },
-          { code: "CS101", name: "Introduction to Computing", credits: 4, grade: "A", gradePoint: 9 },
-          { code: "HS101", name: "Communication Skills", credits: 2, grade: "B+", gradePoint: 8 },
-          { code: "ME101", name: "Engineering Mechanics", credits: 3, grade: "B", gradePoint: 7 }
-        ],
-        sgpa: 8.69
-      },
-      {
-        semester: "2",
-        year: "2022",
-        courses: [
-          { code: "MA102", name: "Engineering Mathematics II", credits: 4, grade: "A", gradePoint: 9 },
-          { code: "CH101", name: "Engineering Chemistry", credits: 3, grade: "B+", gradePoint: 8 },
-          { code: "CS102", name: "Programming Fundamentals", credits: 4, grade: "A+", gradePoint: 10 },
-          { code: "EC101", name: "Basic Electronics", credits: 3, grade: "B", gradePoint: 7 },
-          { code: "EE101", name: "Electrical Engineering Basics", credits: 3, grade: "B+", gradePoint: 8 }
-        ],
-        sgpa: 8.53
-      },
-      {
-        semester: "3",
-        year: "2023",
-        courses: [
-          { code: "CS201", name: "Data Structures", credits: 4, grade: "A", gradePoint: 9 },
-          { code: "CS202", name: "Discrete Mathematics", credits: 3, grade: "A", gradePoint: 9 },
-          { code: "CS203", name: "Object Oriented Programming", credits: 4, grade: "A+", gradePoint: 10 },
-          { code: "CS204", name: "Computer Organization", credits: 3, grade: "B+", gradePoint: 8 },
-          { code: "HS201", name: "Economics for Engineers", credits: 2, grade: "A", gradePoint: 9 }
-        ],
-        sgpa: 9.06
-      },
-      {
-        semester: "4",
-        year: "2023",
-        courses: [
-          { code: "CS205", name: "Design and Analysis of Algorithms", credits: 4, grade: "A", gradePoint: 9 },
-          { code: "CS206", name: "Operating Systems", credits: 4, grade: "B+", gradePoint: 8 },
-          { code: "CS207", name: "Database Management Systems", credits: 4, grade: "A+", gradePoint: 10 },
-          { code: "CS208", name: "Computer Networks", credits: 3, grade: "A", gradePoint: 9 },
-          { code: "HS202", name: "Management Principles", credits: 2, grade: "A", gradePoint: 9 }
-        ],
-        sgpa: 8.94
-      },
-      {
-        semester: "5",
-        year: "2024",
-        courses: [
-          { code: "CS301", name: "Software Engineering", credits: 4, grade: "In Progress", gradePoint: 0 },
-          { code: "CS302", name: "Theory of Computation", credits: 3, grade: "In Progress", gradePoint: 0 },
-          { code: "CS303", name: "Artificial Intelligence", credits: 4, grade: "In Progress", gradePoint: 0 },
-          { code: "CS304", name: "Web Technologies", credits: 3, grade: "In Progress", gradePoint: 0 },
-          { code: "CS305", name: "Cloud Computing", credits: 3, grade: "In Progress", gradePoint: 0 }
-        ],
-        sgpa: 0
-      }
-    ]
+    cgpa: 0,
+    totalCredits: 0,
+    semesters: []
+  });
+
+  const [currentSemester, setCurrentSemester] = useState<{
+    semester: number;
+    year: number;
+    gpa: number;
+    courses: Array<{
+      code: string;
+      name: string;
+      credits: number;
+      grade: string;
+      points: number;
+      department?: string;
+    }>;
+    totalCredits: number;
+    totalPoints: number;
+  }>({
+    semester: 0,
+    year: 0,
+    gpa: 0,
+    courses: [],
+    totalCredits: 0,
+    totalPoints: 0
   });
 
   useEffect(() => {
+    // Authentication check
+    const token = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
-    if (storedRole !== "student") router.push("/");
+    
+    if (!token || storedRole !== "student") {
+      router.push("/login");
+      return;
+    }
+
+    // Fetch student info and grades
+    fetchStudentData();
   }, [router]);
 
-  // Get current semester (the last one)
-  const currentSemester = gradesData.semesters[gradesData.semesters.length - 1];
-  
+  const fetchStudentData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const studentId = localStorage.getItem("userId");
+      
+      if (!token || !studentId) {
+        throw new Error("Authentication required");
+      }
+      
+      // Get student profile info
+      const profileResponse = await fetch(`/api/students/${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!profileResponse.ok) {
+        throw new Error(`Error ${profileResponse.status}: ${profileResponse.statusText}`);
+      }
+      
+      const profileData = await profileResponse.json();
+      setStudentInfo({
+        name: profileData.user?.name || profileData.name || "Student",
+        id: profileData.studentId || studentId,
+        program: profileData.department?.name || "Program"
+      });
+
+      // Get grades data
+      const gradesResponse = await fetch(`/api/students/${profileData.id || studentId}/grades`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!gradesResponse.ok) {
+        throw new Error(`Error ${gradesResponse.status}: ${gradesResponse.statusText}`);
+      }
+
+      const data = await gradesResponse.json();
+
+      if (data.success) {
+        setGradesData(data.data);
+        
+        // Set current semester (most recent one)
+        if (data.data.semesters.length > 0) {
+          const sortedSemesters = [...data.data.semesters].sort((a, b) => {
+            if (a.year !== b.year) return b.year - a.year;
+            return b.semester - a.semester;
+          });
+          
+          setCurrentSemester(sortedSemesters[0]);
+          // Default to showing the most recent semester
+          setSelectedSemester(`${sortedSemesters[0].semester}-${sortedSemesters[0].year}`);
+        }
+      } else {
+        setError(data.message || "Failed to load grades data");
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to fetch grades: ${errorMessage}`);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Map for grade colors
   const gradeColors: Record<string, string> = {
     "A+": "bg-green-500",
     "A": "bg-green-400",
+    "A-": "bg-green-300",
     "B+": "bg-blue-500",
     "B": "bg-blue-400",
+    "B-": "bg-blue-300",
     "C+": "bg-yellow-500",
     "C": "bg-yellow-400",
-    "D": "bg-orange-500",
+    "C-": "bg-yellow-300",
+    "D+": "bg-orange-500",
+    "D": "bg-orange-400",
     "F": "bg-red-500",
     "In Progress": "bg-gray-500"
   };
 
-  // Get the selected semester data
-  const getDisplayedSemester = () => {
-    if (selectedSemester === "current") {
-      return currentSemester;
-    }
-    
-    const [semester, year] = selectedSemester.split('-');
-    return gradesData.semesters.find(s => s.semester === semester && s.year === year) || currentSemester;
+  // Convert semester number to text
+  const getSemesterText = (sem: number | undefined) => {
+    if (!sem) return "Unknown";
+    return sem % 2 === 1 ? "Spring" : "Fall";
   };
-  
-  const displayedSemester = getDisplayedSemester();
 
-  // Calculate completed credits
-  const completedCredits = gradesData.semesters
-    .flatMap(sem => sem.courses)
-    .filter(course => course.grade !== "In Progress")
-    .reduce((total, course) => total + course.credits, 0);
+  const displayedSemester = selectedSemester === "current" 
+    ? currentSemester 
+    : gradesData.semesters.find(
+        sem => `${sem.semester}-${sem.year}` === selectedSemester
+      ) || currentSemester;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-gray-900 text-gray-200">
+        <StudentSidebar />
+        <div className="flex-1 p-6 ml-16">
+          <TopBar />
+          <div className="flex justify-center items-center h-[80vh]">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500"></div>
+            <span className="ml-3 text-xl">Loading grades...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen bg-gray-900 text-gray-200">
+        <StudentSidebar />
+        <div className="flex-1 p-6 ml-16">
+          <TopBar />
+          <div className="flex justify-center items-center h-[80vh]">
+            <div className="bg-red-500/20 border border-red-500 text-red-100 p-4 rounded-lg max-w-lg">
+              <p className="font-bold text-lg mb-2">Error Loading Grades</p>
+              <p>{error}</p>
+              <button 
+                onClick={() => fetchStudentData()}
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-gray-200">
@@ -163,25 +231,23 @@ const StudentGrades: React.FC = () => {
               value={selectedSemester}
               onChange={(e) => setSelectedSemester(e.target.value)}
             >
-              <option value="current">Current Semester</option>
-              {gradesData.semesters.filter(sem => sem.sgpa > 0).map(sem => (
+              {gradesData.semesters.map(sem => (
                 <option key={`${sem.semester}-${sem.year}`} value={`${sem.semester}-${sem.year}`}>
-                  Semester {sem.semester} ({sem.year})
+                  {getSemesterText(sem.semester)} {sem.year}
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-
         {/* Student Overview */}
         <div className="bg-gray-800 p-6 rounded-lg shadow-md mt-4 border border-gray-700 ml-6">
           <div className="flex flex-wrap items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold">{gradesData.studentName}</h2>
-              <p className="text-gray-400">{gradesData.program}</p>
-              <p className="text-sm text-gray-400">Student ID: {gradesData.studentId}</p>
-              <p className="text-sm text-gray-400 mt-1">Completed Credits: {completedCredits}</p>
+              <h2 className="text-xl font-bold">{studentInfo.name}</h2>
+              <p className="text-gray-400">{studentInfo.program}</p>
+              <p className="text-sm text-gray-400">Student ID: {studentInfo.id}</p>
+              <p className="text-sm text-gray-400 mt-1">Completed Credits: {gradesData.totalCredits}</p>
             </div>
             <div className="flex gap-4">
               <div className="bg-gray-700 p-4 rounded-lg text-center">
@@ -190,9 +256,9 @@ const StudentGrades: React.FC = () => {
               </div>
               <div className="bg-gray-700 p-4 rounded-lg text-center">
                 <span className="block text-blue-400 text-3xl font-bold">
-                  {displayedSemester.sgpa > 0 ? displayedSemester.sgpa.toFixed(2) : "IP"}
+                  {displayedSemester?.gpa > 0 ? displayedSemester.gpa.toFixed(2) : "IP"}
                 </span>
-                <span className="text-sm text-gray-400">Sem {displayedSemester.semester} GPA</span>
+                <span className="text-sm text-gray-400">{getSemesterText(displayedSemester?.semester)} GPA</span>
               </div>
             </div>
           </div>
@@ -201,8 +267,8 @@ const StudentGrades: React.FC = () => {
         {/* Semester Details */}
         <div className="bg-gray-800 p-6 rounded-lg shadow-md mt-6 border border-gray-700 mb-6 ml-6">
           <h3 className="text-xl font-bold mb-4 text-green-500 flex items-center">
-            Semester {displayedSemester.semester} ({displayedSemester.year})
-            {displayedSemester.courses.some(c => c.grade === "In Progress") && 
+            {getSemesterText(displayedSemester?.semester)} {displayedSemester?.year}
+            {displayedSemester?.courses.some(c => c.grade === "In Progress") && 
               <span className="ml-2 text-sm bg-blue-600 px-2 py-1 rounded-full">In Progress</span>
             }
           </h3>
@@ -219,7 +285,7 @@ const StudentGrades: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {displayedSemester.courses.map((course, index) => (
+                {displayedSemester?.courses.map((course, index) => (
                   <tr key={course.code} className={index % 2 === 0 ? 'bg-gray-750' : 'bg-gray-800'}>
                     <td className="p-3">{course.code}</td>
                     <td className="p-3">{course.name}</td>
@@ -229,15 +295,15 @@ const StudentGrades: React.FC = () => {
                         {course.grade}
                       </span>
                     </td>
-                    <td className="p-3">{course.grade !== "In Progress" ? course.gradePoint : "-"}</td>
+                    <td className="p-3">{course.grade !== "In Progress" ? course.points.toFixed(1) : "-"}</td>
                   </tr>
                 ))}
               </tbody>
-              {displayedSemester.sgpa > 0 && (
+              {displayedSemester?.gpa > 0 && (
                 <tfoot>
                   <tr className="bg-gray-700">
                     <td colSpan={4} className="p-3 text-right font-bold">Semester GPA:</td>
-                    <td className="p-3 font-bold text-green-400">{displayedSemester.sgpa.toFixed(2)}</td>
+                    <td className="p-3 font-bold text-green-400">{displayedSemester.gpa.toFixed(2)}</td>
                   </tr>
                 </tfoot>
               )}
@@ -249,4 +315,4 @@ const StudentGrades: React.FC = () => {
   );
 };
 
-export default StudentGrades;
+export default GradesPage;

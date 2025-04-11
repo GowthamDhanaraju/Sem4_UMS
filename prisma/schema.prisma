@@ -1,0 +1,303 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "mysql" or "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  admin     Admin?
+  student   Student?
+  teacher   Teacher?
+  token     String? 
+}
+
+model Student {
+  id            String         @id @default(cuid())
+  userId        String         @unique
+  studentId     String         @unique
+  name          String
+  dob           DateTime
+  gender        String         @db.Char(1) // Using single character M/F/O
+  departmentId  String
+  batch         String         @db.VarChar(10)
+  semester      Int            @db.SmallInt
+  joinDate      DateTime
+  contact       String         @db.VarChar(15) // Changed to String to handle phone numbers properly
+  academicInfo  Json?          // Efficient storage of complex data
+  attendance    Attendance[]
+  borrowedBooks BorrowedBook[]
+  enrollments   Enrollment[]
+  department    Department     @relation(fields: [departmentId], references: [id])
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Teacher {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  teacherId          String              @unique @map("facultyId")
+  name               String
+  dob                DateTime
+  gender             String              @db.Char(1) // Using single character M/F/O
+  departmentId       String
+  designation        String              @db.VarChar(50)
+  specialization     String              @db.VarChar(100)
+  joinDate           DateTime
+  contact            String              @db.VarChar(15) // Changed to String for phone numbers
+  professional       Json?
+  auditoriumBookings AuditoriumBooking[]
+  feedback           Feedback[]
+  schedules          Schedule[]
+  department         Department          @relation(fields: [departmentId], references: [id])
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teachingCourses    TeacherCourse[]
+}
+
+model Admin {
+  id      String @id @default(cuid())
+  userId  String @unique
+  name    String
+  adminId String @unique
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Department {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  code     String    @unique
+  courses  Course[]
+  sections Section[]
+  students Student[]
+  teachers Teacher[]
+}
+
+model Course {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  credits        Int
+  departmentId   String
+  semester       Int
+  attendance     Attendance[]
+  department     Department      @relation(fields: [departmentId], references: [id])
+  enrollments    Enrollment[]
+  feedback       Feedback[]
+  schedules      Schedule[]
+  teacherCourses TeacherCourse[]
+}
+
+model Enrollment {
+  id         String   @id @default(cuid())
+  studentId  String
+  courseId   String
+  year       Int
+  semester   Int
+  grade      String?
+  gradePoint Float?
+  status     String   @default("In Progress")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  course     Course   @relation(fields: [courseId], references: [id])
+  student    Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, courseId, year, semester])
+}
+
+model TeacherCourse {
+  id        String  @id @default(cuid())
+  teacherId String
+  courseId  String
+  section   String
+  year      Int
+  semester  Int
+  course    Course  @relation(fields: [courseId], references: [id])
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+
+  @@unique([teacherId, courseId, section, year, semester])
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  studentId String
+  courseId  String
+  date      DateTime
+  status    String
+  note      String?  // Adding note field
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  course    Course   @relation(fields: [courseId], references: [id])
+  student   Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, courseId, date])
+}
+
+model Feedback {
+  id            String   @id @default(cuid())
+  studentId     String?  // Student ID (optional if anonymous feedback is allowed)
+  teacherId     String   // Teacher ID who is being rated
+  courseId      String   // Course ID for which feedback is given
+  date          DateTime @default(now()) // Feedback submission date
+  courseRating  Json     // { content: float, assignments: float, difficulty: float }
+  teacherRating Json     // { knowledge: float, teaching: float, accessibility: float }
+  overallRating Float    // Overall rating for the course and teacher
+  comments      String?  // Additional comments (optional)
+  
+  // Relations
+  course        Course   @relation(fields: [courseId], references: [id])
+  teacher       Teacher  @relation(fields: [teacherId], references: [id])
+
+  @@index([courseId]) // Add index for courseId to optimize queries
+  @@index([teacherId]) // Add index for teacherId to optimize queries
+}
+
+model Book {
+  id            String         @id @default(cuid())
+  title         String
+  author        String
+  category      String
+  isbn          String         @unique
+  publisher     String
+  copies        Int
+  available     Int
+  location      String
+  borrowedBooks BorrowedBook[]
+}
+
+model BorrowedBook {
+  id         String    @id @default(cuid())
+  bookId     String
+  studentId  String
+  borrowDate DateTime  @default(now())
+  dueDate    DateTime
+  returnDate DateTime?
+  status     String
+  book       Book      @relation(fields: [bookId], references: [id])
+  student    Student   @relation(fields: [studentId], references: [id])
+
+  @@unique([bookId, studentId, borrowDate])
+}
+
+model Auditorium {
+  id            String              @id @default(cuid())
+  name          String              @unique
+  location      String
+  capacity      Int
+  hasWhiteboard Boolean             @default(false)
+  status        String
+  statusNote    String?
+  amenities     String[]
+  bookings      AuditoriumBooking[]
+  availabilitySlots AvailabilitySlot[] 
+
+}
+
+model AuditoriumBooking {
+  id           String     @id @default(cuid())
+  title        String
+  auditoriumId String
+  teacherId    String
+  date         DateTime
+  timeSlot     String
+  description  String
+  status       String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditorium   Auditorium @relation(fields: [auditoriumId], references: [id])
+  teacher      Teacher    @relation(fields: [teacherId], references: [id])
+}
+
+model AvailabilitySlot {
+  id           String     @id @default(cuid())
+  auditoriumId String
+  date         DateTime
+  timeSlot     String
+  isAvailable  Boolean    @default(true)
+  auditorium   Auditorium @relation(fields: [auditoriumId], references: [id])
+
+  @@unique([auditoriumId, date, timeSlot])
+}
+
+model TimeSlot {
+  id        String     @id @default(cuid())
+  startTime String
+  endTime   String
+  name      String?
+  schedules Schedule[]
+}
+
+model AcademicYear {
+  id        String     @id @default(cuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean    @default(false)
+  schedules Schedule[]
+}
+
+model Schedule {
+  id             String       @id @default(cuid())
+  day            Day
+  timeSlotId     String
+  sectionId      String
+  courseId       String
+  teacherId      String
+  academicYearId String
+  semester       Int
+  roomNumber     String
+  type           ScheduleType @default(LECTURE)
+  isBreak        Boolean      @default(false)
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  course         Course       @relation(fields: [courseId], references: [id])
+  section        Section      @relation(fields: [sectionId], references: [id])
+  teacher        Teacher      @relation(fields: [teacherId], references: [id])
+  timeSlot       TimeSlot     @relation(fields: [timeSlotId], references: [id])
+
+  @@unique([day, timeSlotId, sectionId, academicYearId, semester])
+}
+
+model Section {
+  id           String     @id @default(cuid())
+  name         String
+  departmentId String
+  batch        String
+  schedules    Schedule[]
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([name, departmentId, batch])
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum Day {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum ScheduleType {
+  LECTURE
+  LAB
+  TUTORIAL
+  PROJECT
+  BREAK
+}
